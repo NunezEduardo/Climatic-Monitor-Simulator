@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>WeatherPro Advanced - Mapa Climático Global Interactivo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+        }
+        #map {
+            height: 70vh;
+            z-index: 1;
+        }
+        .weather-dashboard {
+            background-color: rgba(255,255,255,0.9);
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-top: -50px;
+            position: relative;
+            z-index: 2;
+        }  
+        .city-weather-card {
+            background-color: #ffffff;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease;
+        }
+        .city-weather-card:hover {
+            transform: scale(1.02);
+        }
+        .advanced-search {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .weather-icon {
+            font-size: 3rem;
+            margin-right: 15px;
+        }
+        .detail-icon {
+            margin-right: 10px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div id="map" class="mb-4"></div>
+        
+        <div class="container">
+            <div class="advanced-search">
+                <div class="row">
+                    <div class="col-md-6">
+                        <input type="text" id="citySearch" class="form-control" placeholder="Buscar ciudad o región...">
+                    </div>
+                    <div class="col-md-3">
+                        <select id="weatherFilter" class="form-select">
+                            <option value="all">Todos los climas</option>
+                            <option value="soleado">Soleado</option>
+                            <option value="lluvia">Lluvia</option>
+                            <option value="nublado">Nublado</option>
+                            <option value="tormenta">Tormenta</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button onclick="searchAndFilterCities()" class="btn btn-primary w-100">Filtrar</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row" id="weatherDashboard">
+                <!-- Contenido dinámico se insertará aquí -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Configuración del mapa
+        const map = L.map('map').setView([20, 0], 3);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Lista de ciudades con coordenadas
+        const cities = [
+        { name: "Caracas", lat: 10.4806, lon: -66.9036 },
+    { name: "Washington D.C.", lat: 38.9072, lon: -77.0369 },
+    { name: "Ciudad de México", lat: 19.4326, lon: -99.1332 },
+    { name: "Brasilia", lat: -15.7975, lon: -47.8919 },
+    { name: "Buenos Aires", lat: -34.6037, lon: -58.3816 },
+    { name: "Londres", lat: 51.5074, lon: -0.1278 },
+    { name: "París", lat: 48.8566, lon: 2.3522 },
+    { name: "Berlín", lat: 52.5200, lon: 13.4050 },
+    { name: "Madrid", lat: 40.4168, lon: -3.7038 },
+    { name: "Roma", lat: 41.9028, lon: 12.4964 },
+    { name: "Moscú", lat: 55.7558, lon: 37.6173 },
+    { name: "Tokio", lat: 35.6762, lon: 139.6503 },
+    { name: "Pekín", lat: 39.9042, lon: 116.4074 },
+    { name: "Nueva Delhi", lat: 28.6139, lon: 77.2090 },
+    { name: "Dubái", lat: 25.2048, lon: 55.2708 },
+    { name: "El Cairo", lat: 30.0444, lon: 31.2357 },
+    { name: "Lagos", lat: 6.5244, lon: 3.3792 },
+    { name: "Nairobi", lat: -1.2921, lon: 36.8219 },
+    { name: "Sídney", lat: -33.8688, lon: 151.2093 },
+    { name: "Singapur", lat: 1.3521, lon: 103.8198 },
+    { name: "Seúl", lat: 37.5665, lon: 126.9780 },
+    { name: "Tokio", lat: 35.6762, lon: 139.6503 },
+    { name: "Canberra", lat: -35.2809, lon: 149.1300 },
+    { name: "Ottawa", lat: 45.4215, lon: -75.6972 },
+    { name: "Bogotá", lat: 4.7110, lon: -74.0721 },
+    { name: "Lima", lat: -12.0464, lon: -77.0428 },
+    { name: "Santiago", lat: -33.4489, lon: -70.6693 },
+    { name: "Doha", lat: 25.2854, lon: 51.5310 },
+    { name: "Riad", lat: 24.7136, lon: 46.6753 },
+    { name: "Ankara", lat: 39.9334, lon: 32.8597 },
+    { name: "Jakarta", lat: -6.2088, lon: 106.8456 },
+    { name: "Manila", lat: 14.5995, lon: 120.9842 },
+    { name: "Hanói", lat: 21.0278, lon: 105.8342 },
+    { name: "Bangkok", lat: 13.7563, lon: 100.5018 },
+    { name: "Kuala Lumpur", lat: 3.1390, lon: 101.6869 },
+    { name: "Estocolmo", lat: 59.3293, lon: 18.0686 },
+    { name: "Oslo", lat: 59.9139, lon: 10.7522 },
+    { name: "Helsinki", lat: 60.1699, lon: 24.9384 },
+    { name: "Copenhague", lat: 55.6761, lon: 12.5683 },
+    { name: "Praga", lat: 50.0755, lon: 14.4378 },
+    { name: "Varsovia", lat: 52.2297, lon: 21.0122 }, 
+    { name: "Taipei", lat: 25.0330, lon: 121.5654 },
+    { name: "Phnom Penh", lat: 11.5564, lon: 104.9282 },
+    { name: "Islamabad", lat: 33.6844, lon: 73.0479 },
+    { name: "Katmandú", lat: 27.7172, lon: 85.3240 },
+    { name: "Colombo", lat: 6.9271, lon: 79.8612 },
+    { name: "Ereván", lat: 40.1792, lon: 44.4991 },
+    { name: "Beirut", lat: 33.8938, lon: 35.5018 },
+    { name: "Damasco", lat: 33.5138, lon: 36.2765 },
+    { name: "Ammán", lat: 31.9454, lon: 35.9283 },
+    { name: "Jerusalén", lat: 31.7683, lon: 35.2137 },
+    { name: "Tel Aviv", lat: 32.0853, lon: 34.7818 },
+    { name: "Tirana", lat: 41.3275, lon: 19.8187 },
+    { name: "Belgrado", lat: 44.7866, lon: 20.4489 },
+    { name: "Sofía", lat: 42.6977, lon: 23.3219 },
+    { name: "Bucarest", lat: 44.4268, lon: 26.1025 },
+    { name: "Liubliana", lat: 46.0500, lon: 14.5167 },
+    { name: "Zagreb", lat: 45.8150, lon: 15.9819 },
+    { name: "Sarajevo", lat: 43.8563, lon: 18.4131 },
+    { name: "Skopje", lat: 41.9973, lon: 21.4280 },
+    { name: "Atenas", lat: 37.9838, lon: 23.7275 },
+    { name: "La Valeta", lat: 35.8989, lon: 14.5146 },
+    { name: "Nicosia", lat: 35.1856, lon: 33.3823 },
+    { name: "Bratislava", lat: 48.1486, lon: 17.1077 },
+    { name: "Luxemburgo", lat: 49.6116, lon: 6.1319 },
+    { name: "Dublín", lat: 53.3498, lon: -6.2603 },
+    { name: "Reikiavik", lat: 64.1265, lon: -21.8174 },
+    { name: "Podgorica", lat: 42.4304, lon: 19.2594 },
+    { name: "Pristina", lat: 42.6629, lon: 21.1655 },
+    { name: "Chisinau", lat: 47.0152, lon: 28.8306 },
+    { name: "Minsk", lat: 53.9006, lon: 27.5590 },
+    { name: "Kiev", lat: 50.4501, lon: 30.5234 },
+    { name: "Riga", lat: 56.9496, lon: 24.1052 },
+    { name: "Vilnius", lat: 54.6892, lon: 25.2798 },
+    { name: "Tallin", lat: 59.4370, lon: 24.7536 },
+    { name: "Quito", lat: -0.1807, lon: -78.4678 },
+    { name: "La Paz", lat: -16.4897, lon: -68.1193 },
+    { name: "Asunción", lat: -25.2854, lon: -57.6359 }
+        ];
+
+        // Colores para diferentes tipos de clima
+        const weatherColors = {
+            'soleado': '#FFD700',
+            'lluvia': '#4682B4',
+            'nublado': '#708090',
+            'tormenta': '#483D8B'
+        };
+
+        // Mejora de generación de datos climáticos
+        function generateAdvancedWeatherData() {
+            const weatherTypes = [
+                { 
+                    type: 'soleado', 
+                    icon: '☀️', 
+                    tempRange: [25, 35],
+                    description: 'Día perfecto para actividades al aire libre'
+                },
+                { 
+                    type: 'lluvia', 
+                    icon: '🌧️', 
+                    tempRange: [15, 22],
+                    description: 'Probabilidad de lluvia durante el día'
+                },
+                { 
+                    type: 'nublado', 
+                    icon: '☁️', 
+                    tempRange: [18, 25],
+                    description: 'Cielo cubierto con posibles claros'
+                },
+                { 
+                    type: 'tormenta', 
+                    icon: '⛈️', 
+                    tempRange: [20, 28],
+                    description: 'Posibles tormentas eléctricas'
+                }
+            ];
+
+            const weatherCondition = weatherTypes[Math.floor(Math.random() * weatherTypes.length)];
+
+            return {
+                temperature: Math.floor(Math.random() * 
+                    (weatherCondition.tempRange[1] - weatherCondition.tempRange[0]) + 
+                    weatherCondition.tempRange[0]),
+                condition: weatherCondition,
+                humidity: Math.floor(Math.random() * 70) + 30,
+                windSpeed: Math.floor(Math.random() * 30),
+                precipitation: Math.floor(Math.random() * 50)
+            };
+        }
+
+        // Marcadores del mapa
+        const cityMarkers = [];
+
+        // Función para añadir marcadores al mapa
+        function addCityMarkersToMap(filteredCities) {
+            // Eliminar marcadores existentes
+            cityMarkers.forEach(marker => map.removeLayer(marker));
+            cityMarkers.length = 0;
+
+            filteredCities.forEach(city => {
+                const weather = generateAdvancedWeatherData();
+                const marker = L.circleMarker([city.lat, city.lon], {
+                    radius: 10,
+                    fillColor: weatherColors[weather.condition.type] || '#000',
+                    color: "#000",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+
+                marker.bindPopup(`
+                 <strong>${city.name}</strong><br>
+                    ${weather.condition.icon} ${weather.condition.description}<br>
+                    Temperatura: ${weather.temperature}°C<br>
+                    Humedad: ${weather.humidity}%<br>
+                    Viento: ${weather.windSpeed} km/h<br>
+                    Precipitación: ${weather.precipitation} mm
+                `);
+
+                cityMarkers.push(marker);
+            });
+        }
+
+        // Función para renderizar el dashboard de clima
+        function renderWeatherDashboard(weatherData) {
+            const dashboard = document.getElementById('weatherDashboard');
+            dashboard.innerHTML = weatherData.map(({ city, weather }) => `
+                <div class="col-md-4 mb-3">
+                    <div class="city-weather-card">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="weather-icon">${weather.condition.icon}</div>
+                            <div>
+                                <h5 class="mb-1">${city.name}</h5>
+                                <p class="text-muted mb-0">${weather.condition.type}</p>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <p><i class="detail-icon">🌡️</i> ${weather.temperature}°C</p>
+                                <p><i class="detail-icon">💧</i> ${weather.humidity}%</p>
+                            </div>
+                            <div class="col-6">
+                                <p><i class="detail-icon">💨</i> ${weather.windSpeed} km/h</p>
+                                <p><i class="detail-icon">☂️</i> ${weather.precipitation} mm</p>
+                            </div>
+                        </div>
+                        <small class="text-muted">${weather.condition.description}</small>
+                    </div>
+                </div>
+            `).join('');
+
+            // Añadir marcadores al mapa
+            addCityMarkersToMap(weatherData.map(({ city }) => city));
+        }
+
+        // Función para buscar y filtrar ciudades
+        function searchAndFilterCities() {
+            const searchTerm = document.getElementById('citySearch').value.toLowerCase();
+            const filter = document.getElementById('weatherFilter').value;
+
+            const filteredCities = cities.filter(city => {
+                const weather = generateAdvancedWeatherData();
+                const matchesSearch = city.name.toLowerCase().includes(searchTerm);
+                const matchesFilter = filter === 'all' || weather.condition.type === filter;
+
+                return matchesSearch && matchesFilter;
+            }).map(city => ({
+                city,
+                weather: generateAdvancedWeatherData()
+            }));
+
+            renderWeatherDashboard(filteredCities);
+        }
+
+        // Inicializar el dashboard con todas las ciudades
+        document.addEventListener('DOMContentLoaded', () => {
+            const initialWeatherData = cities.map(city => ({
+                city,
+                weather: generateAdvancedWeatherData()
+            }));
+            renderWeatherDashboard(initialWeatherData);
+        });
+    </script>
+</body>
+</html>
